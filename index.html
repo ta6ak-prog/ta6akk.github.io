@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Super App</title>
+<style>
+:root{--bg:#0b0b10;--panel:#15151d;--panel2:#1d1d28;--line:#2a2a38;--text:#f1f1f5;--muted:#8f8fa3;--accent:#6c5ce7;--accent2:#00d2a8;}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font-weight:800;letter-spacing:1px}
+.brand span{color:var(--accent2)}
+.gear{background:none;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:.9rem}
+.gear:hover{border-color:var(--accent)}
+.modes{display:flex;gap:8px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
+.mode{white-space:nowrap;background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:8px 16px;cursor:pointer;font-size:.9rem;transition:.15s}
+.mode:hover{color:var(--text)}
+.mode.active{background:var(--accent);border-color:var(--accent);color:#fff}
+#log{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.msg{max-width:760px;padding:12px 16px;border-radius:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+.msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg.bot{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.sys{align-self:center;background:transparent;color:var(--muted);font-size:.85rem;text-align:center}
+.msg img{max-width:100%;border-radius:10px;margin-top:6px}
+.msg audio{margin-top:8px;width:100%}
+.composer{display:flex;gap:10px;padding:14px 20px;background:var(--panel);border-top:1px solid var(--line)}
+.composer textarea{flex:1;resize:none;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px 14px;font-size:1rem;font-family:inherit;max-height:140px}
+.composer textarea:focus{outline:none;border-color:var(--accent)}
+.send{background:var(--accent2);border:none;color:#06241d;font-weight:700;border-radius:12px;padding:0 22px;cursor:pointer;font-size:1rem}
+.send:disabled{opacity:.5;cursor:not-allowed}
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50}
+.overlay.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px;width:min(460px,92vw)}
+.modal h2{font-size:1.2rem;margin-bottom:6px}
+.modal p{color:var(--muted);font-size:.88rem;margin-bottom:16px}
+.modal label{display:block;font-size:.85rem;margin:12px 0 6px;color:var(--muted)}
+.modal input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:11px 13px;font-size:.95rem}
+.modal .row{display:flex;gap:10px;margin-top:20px}
+.modal .row button{flex:1;border:none;border-radius:10px;padding:12px;font-weight:700;cursor:pointer}
+.btn-save{background:var(--accent);color:#fff}
+.btn-close{background:var(--panel2);color:var(--text);border:1px solid var(--line)!important}
+.warn{background:#3a2a12;border:1px solid #6b4a1a;color:#f3c87a;font-size:.8rem;padding:10px 12px;border-radius:10px;margin-top:14px;line-height:1.4}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">AI <span>Super App</span></div>
+  <button class="gear" id="gear">⚙️ Настройки</button>
+</header>
+
+<div class="modes" id="modes">
+  <div class="mode active" data-mode="chat">💬 Чат</div>
+  <div class="mode" data-mode="code">👨‍💻 Программист</div>
+  <div class="mode" data-mode="image">🎨 Фото</div>
+  <div class="mode" data-mode="voice">🔊 Озвучка</div>
+</div>
+
+<div id="log">
+  <div class="msg sys">Выбери режим сверху и напиши сообщение. Сначала открой «⚙️ Настройки» и вставь свой API-ключ.</div>
+</div>
+
+<div class="composer">
+  <textarea id="input" rows="1" placeholder="Напиши сообщение..."></textarea>
+  <button class="send" id="send">↑</button>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>Настройки</h2>
+    <p>Ключ хранится только в твоём браузере (localStorage) и никуда не отправляется, кроме самого AI-провайдера.</p>
+    <label>API-ключ (OpenAI)</label>
+    <input id="key" type="password" placeholder="sk-...">
+    <label>Base URL (можно оставить по умолчанию)</label>
+    <input id="baseurl" type="text" placeholder="https://api.openai.com/v1">
+    <div class="warn">⚠️ Это личный инструмент. НЕ выкладывай этот сайт с уже вписанным ключом в общий доступ — ключ виден в браузере. Для публичного сайта нужен сервер-прокси (см. README).</div>
+    <div class="row">
+      <button class="btn-close" id="closeSet">Закрыть</button>
+      <button class="btn-save" id="saveSet">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var LS_KEY='ai_app_key', LS_URL='ai_app_url';
+  var mode='chat';
+  var log=document.getElementById('log');
+  var input=document.getElementById('input');
+  var sendBtn=document.getElementById('send');
+  var overlay=document.getElementById('overlay');
+
+  // settings
+  document.getElementById('key').value=localStorage.getItem(LS_KEY)||'';
+  document.getElementById('baseurl').value=localStorage.getItem(LS_URL)||'https://api.openai.com/v1';
+  document.getElementById('gear').addEventListener('click',function(){overlay.classList.add('open');});
+  document.getElementById('closeSet').addEventListener('click',function(){overlay.classList.remove('open');});
+  document.getElementById('saveSet').addEventListener('click',function(){
+    localStorage.setItem(LS_KEY,document.getElementById('key').value.trim());
+    localStorage.setItem(LS_URL,(document.getElementById('baseurl').value.trim()||'https://api.openai.com/v1'));
+    overlay.classList.remove('open');
+    addMsg('sys','Настройки сохранены ✓');
+  });
+
+  // modes
+  document.getElementById('modes').addEventListener('click',function(e){
+    var m=e.target.closest('.mode'); if(!m)return;
+    document.querySelectorAll('.mode').forEach(function(x){x.classList.remove('active');});
+    m.classList.add('active'); mode=m.dataset.mode;
+    var hints={chat:'Режим чата. Задай любой вопрос.',code:'Режим программиста. Опиши задачу по коду.',image:'Режим генерации фото. Опиши картинку.',voice:'Режим озвучки. Пришли текст.'};
+    addMsg('sys',hints[mode]);
+  });
+
+  function addMsg(role,text){
+    var d=document.createElement('div');
+    d.className='msg '+role;
+    d.textContent=text;           // безопасно: только текст
+    log.appendChild(d); log.scrollTop=log.scrollHeight;
+    return d;
+  }
+  function creds(){
+    return {k:localStorage.getItem(LS_KEY)||'',u:localStorage.getItem(LS_URL)||'https://api.openai.com/v1'};
+  }
+
+  input.addEventListener('input',function(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,140)+'px';});
+  input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();go();}});
+  sendBtn.addEventListener('click',go);
+
+  async function go(){
+    var text=input.value.trim(); if(!text)return;
+    var c=creds();
+    if(!c.k){addMsg('sys','⚙️ Сначала вставь API-ключ в настройках.');overlay.classList.add('open');return;}
+    addMsg('user',text); input.value=''; input.style.height='auto';
+    sendBtn.disabled=true;
+    var wait=addMsg('bot','…');
+    try{
+      if(mode==='image'){await doImage(text,c,wait);}
+      else if(mode==='voice'){await doVoice(text,c,wait);}
+      else{await doChat(text,c,wait);}
+    }catch(err){wait.textContent='❌ Ошибка: '+err.message;}
+    sendBtn.disabled=false;
+  }
+
+  async function doChat(text,c,node){
+    var sys=mode==='code'?'Ты опытный программист. Отвечай с примерами кода.':'Ты дружелюбный помощник. Отвечай по-русски.';
+    var r=await fetch(c.u+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.k},body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'system',content:sys},{role:'user',content:text}]})});
+    var j=await r.json();
+    if(j.error)throw new Error(j.error.message);
+    node.textContent=j.choices[0].message.content;
+  }
+  async function doImage(text,c,node){
+    var r=await fetch(c.u+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.k},body:JSON.stringify({model:'gpt-image-1',prompt:text,size:'1024x1024'})});
+    var j=await r.json();
+    if(j.error)throw new Error(j.error.message);
+    node.textContent='Готово 🎨';
+    var d=j.data[0];
+    var img=document.createElement('img');
+    img.src=d.url?d.url:('data:image/png;base64,'+d.b64_json);
+    node.appendChild(img);
+  }
+  async function doVoice(text,c,node){
+    var r=await fetch(c.u+'/audio/speech',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.k},body:JSON.stringify({model:'tts-1',voice:'alloy',input:text})});
+    if(!r.ok){var j=await r.json();throw new Error((j.error&&j.error.message)||'TTS error');}
+    var blob=await r.blob();
+    node.textContent='Готово 🔊';
+    var a=document.createElement('audio');
+    a.controls=true; a.src=URL.createObjectURL(blob);
+    node.appendChild(a);
+  }
+})();
+</script>
+</body>
+</html>
